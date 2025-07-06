@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Multilevel Queue Scheduler</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen">
+  <div class="max-w-5xl mx-auto px-6 py-10">
+    <h1 class="text-3xl font-semibold mb-6 text-center border-b pb-4">🖥️ Multilevel Queue Scheduler</h1>
+
+    <div class="bg-white shadow-md rounded-md p-6">
+      <table id="processTable" class="w-full border border-gray-300 text-sm">
+        <thead class="bg-gray-200 text-gray-700">
+          <tr>
+            <th class="p-2 border">PID</th>
+            <th class="p-2 border">Arrival Time</th>
+            <th class="p-2 border">Burst Time</th>
+            <th class="p-2 border">Queue Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="p-2 border"><input type="text" class="pid border p-1 w-full" /></td>
+            <td class="p-2 border"><input type="number" class="arrivalTime border p-1 w-full" /></td>
+            <td class="p-2 border"><input type="number" class="burstTime border p-1 w-full" /></td>
+            <td class="p-2 border">
+              <select class="queueType border p-1 w-full">
+                <option value="SYSTEM">System</option>
+                <option value="INTERACTIVE">Interactive</option>
+                <option value="BATCH">Batch</option>
+              </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="flex gap-4 justify-end mt-4">
+        <button onclick="addRow()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Add Process</button>
+        <button onclick="submitData()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Run Scheduler</button>
+      </div>
+    </div>
+
+    <div class="mt-10 bg-white shadow-md rounded-md p-6">
+      <h2 class="text-xl font-medium mb-2">Execution Order</h2>
+      <pre id="executionOrder" class="bg-gray-100 p-3 rounded border border-gray-300 text-sm overflow-x-auto"></pre>
+
+      <h2 class="text-xl font-medium mt-6 mb-2">Waiting Times</h2>
+      <div id="waitingTimes"></div>
+
+      <h2 class="text-xl font-medium mt-6 mb-2">Turnaround Times</h2>
+      <div id="turnaroundTimes"></div>
+    </div>
+  </div>
+
+  <script>
+    function addRow() {
+      const table = document.getElementById("processTable").getElementsByTagName('tbody')[0];
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td class="p-2 border"><input type="text" class="pid border p-1 w-full" /></td>
+        <td class="p-2 border"><input type="number" class="arrivalTime border p-1 w-full" /></td>
+        <td class="p-2 border"><input type="number" class="burstTime border p-1 w-full" /></td>
+        <td class="p-2 border">
+          <select class="queueType border p-1 w-full">
+            <option value="SYSTEM">System</option>
+            <option value="INTERACTIVE">Interactive</option>
+            <option value="BATCH">Batch</option>
+          </select>
+        </td>`;
+      table.appendChild(row);
+    }
+
+    async function submitData() {
+      const pids = document.querySelectorAll('.pid');
+      const arrivals = document.querySelectorAll('.arrivalTime');
+      const bursts = document.querySelectorAll('.burstTime');
+      const queues = document.querySelectorAll('.queueType');
+
+      let processes = [];
+
+      for (let i = 0; i < pids.length; i++) {
+        if (!pids[i].value) continue;
+        processes.push({
+          pid: pids[i].value,
+          arrivalTime: parseInt(arrivals[i].value),
+          burstTime: parseInt(bursts[i].value),
+          queueType: queues[i].value
+        });
+      }
+
+      const response = await fetch("/scheduler/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ processes })
+      });
+
+      const result = await response.json();
+
+      document.getElementById("executionOrder").innerText = result.executionOrder.join(" -> ");
+
+      let wtHtml = `<table class="w-full border mt-2 text-sm"><thead><tr><th class="p-2 border">PID</th><th class="p-2 border">Waiting Time</th></tr></thead><tbody>`;
+      for (const pid in result.waitingTimes) {
+        wtHtml += `<tr><td class="p-2 border">${pid}</td><td class="p-2 border">${result.waitingTimes[pid]}</td></tr>`;
+      }
+      wtHtml += "</tbody></table>";
+      document.getElementById("waitingTimes").innerHTML = wtHtml;
+
+      let tatHtml = `<table class="w-full border mt-2 text-sm"><thead><tr><th class="p-2 border">PID</th><th class="p-2 border">Turnaround Time</th></tr></thead><tbody>`;
+      for (const pid in result.turnaroundTimes) {
+        tatHtml += `<tr><td class="p-2 border">${pid}</td><td class="p-2 border">${result.turnaroundTimes[pid]}</td></tr>`;
+      }
+      tatHtml += "</tbody></table>";
+      document.getElementById("turnaroundTimes").innerHTML = tatHtml;
+    }
+  </script>
+</body>
+</html>
